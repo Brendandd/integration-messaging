@@ -82,14 +82,14 @@ public abstract class BaseMessagingComponent extends RouteBuilder implements Com
 		RouteDto routeDto = configurationService.getRouteByName(getIdentifier().getRouteName());
 	    
 		if (routeDto == null) {
-			throw new ConfigurationException("Route. Route name: " + getIdentifier().getRouteName());
+			throw new ConfigurationException("Route not found. Route name: " + getIdentifier().getRouteName());
 		}
 	
 		// Get the component
 		ComponentDto componentDto = configurationService.getComponentByName(getIdentifier().getComponentName());
 		
 		if (componentDto == null) {
-			throw new ConfigurationException("Component. Component name: " + getIdentifier().getComponentName());
+			throw new ConfigurationException("Component not found. Component name: " + getIdentifier().getComponentName());
 		}
 		
 		// Now get the component route object.  This will throw an exception if the component is not on this route.
