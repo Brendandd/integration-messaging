@@ -9,15 +9,14 @@ import org.apache.camel.Exchange;
  *
  */
 public abstract class MessageTransformer {
-	
+
 	public String transform(Exchange exchange, String messageBody) throws TransformationException {
 		try {
 			return transformMessage(exchange, messageBody);
-		} catch(Exception e) {
+		} catch (Exception e) {
 			throw new TransformationException("Error transforming the message", e);
 		}
 	}
 
-	
 	public abstract String transformMessage(Exchange exchange, String messageBody) throws TransformationException, Exception;
 }

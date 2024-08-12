@@ -8,7 +8,7 @@ import integration.messaging.component.processingstep.filter.MessageForwardingPo
  * @author Brendan Douglas
  */
 public interface SourceComponent extends Component {
-	
+
 	MessageForwardingPolicy getMessageForwardingPolicy();
 
 }

@@ -8,9 +8,9 @@ import integration.messaging.component.processingstep.filter.MessageAcceptancePo
  * @author Brendan Douglas
  */
 public interface DestinationComponent extends Component {
-	
+
 	void addSourceComponent(SourceComponent sourceComponent);
-	
-	MessageAcceptancePolicy getMessageAcceptancePolicy(); 
+
+	MessageAcceptancePolicy getMessageAcceptancePolicy();
 
 }

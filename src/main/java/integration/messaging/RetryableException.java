@@ -8,12 +8,12 @@ package integration.messaging;
  */
 public class RetryableException extends MessageFlowException {
 	private static final long serialVersionUID = -3712533515354380661L;
-	
+
 	public RetryableException(String message) {
 		super(message);
 	}
-	
+
 	public RetryableException(String message, Throwable cause) {
-		super(message,cause);
+		super(message, cause);
 	}
 }

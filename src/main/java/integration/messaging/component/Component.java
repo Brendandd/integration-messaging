@@ -9,8 +9,8 @@ import integration.messaging.ComponentIdentifier;
  */
 public interface Component {
 	ComponentIdentifier getIdentifier();
-	
+
 	void setRoute(String route);
-	
+
 	void config() throws Exception;
 }

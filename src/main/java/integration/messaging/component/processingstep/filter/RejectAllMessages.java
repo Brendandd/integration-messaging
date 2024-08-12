@@ -11,19 +11,16 @@ import org.springframework.stereotype.Component;
 @Component("rejectAllMessages")
 public class RejectAllMessages extends MessageAcceptancePolicy {
 
-
 	@Override
 	public boolean applyPolicy(String messageContent) throws FilterException {
 		return false;
 	}
 
-	
 	@Override
 	public String getFilterReason() {
 		return "All messages are filtered by filter";
 	}
 
-	
 	@Override
 	public String getName() {
 		return "Filter All Messages Filter";

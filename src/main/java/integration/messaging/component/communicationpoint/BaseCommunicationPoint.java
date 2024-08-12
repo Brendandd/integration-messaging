@@ -8,7 +8,7 @@ import integration.messaging.component.BaseMessagingComponent;
  * @author Brendan Douglas
  */
 public abstract class BaseCommunicationPoint extends BaseMessagingComponent {
-	
+
 	public BaseCommunicationPoint(String componentName) {
 		super(componentName);
 	}

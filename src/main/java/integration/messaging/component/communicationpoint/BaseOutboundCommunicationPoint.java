@@ -17,11 +17,10 @@ public abstract class BaseOutboundCommunicationPoint extends BaseCommunicationPo
 		super(componentName);
 	}
 
+	protected List<String> sourceComponentPaths = new ArrayList<>();
 
-	protected List<String>sourceComponentPaths = new ArrayList<>();
-	
 	public abstract String getToUriString();
-	
+
 	@Override
 	public void addSourceComponent(SourceComponent sourceComponent) {
 		this.sourceComponentPaths.add(sourceComponent.getIdentifier().getComponentPath());

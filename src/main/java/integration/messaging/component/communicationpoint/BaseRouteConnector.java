@@ -8,7 +8,7 @@ import integration.messaging.component.BaseMessagingComponent;
  * @author Brendan Douglas
  */
 public abstract class BaseRouteConnector extends BaseMessagingComponent {
-	
+
 	public BaseRouteConnector(String componentName) {
 		super(componentName);
 	}

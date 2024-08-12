@@ -14,14 +14,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 @Configuration
 public class CamelConfig {
 
-    @Autowired
-    private PlatformTransactionManager jmsTransactionManager; // Autowire your JMS transaction manager
+	@Autowired
+	private PlatformTransactionManager jmsTransactionManager; // Autowire your JMS transaction manager
 
-    @Bean
-    public SpringTransactionPolicy txRequiresNew() {
-        SpringTransactionPolicy policy = new SpringTransactionPolicy();
-        policy.setTransactionManager(jmsTransactionManager);
-        policy.setPropagationBehaviorName("PROPAGATION_REQUIRES_NEW");
-        return policy;
-    }
+	@Bean
+	public SpringTransactionPolicy txRequiresNew() {
+		SpringTransactionPolicy policy = new SpringTransactionPolicy();
+		policy.setTransactionManager(jmsTransactionManager);
+		policy.setPropagationBehaviorName("PROPAGATION_REQUIRES_NEW");
+		return policy;
+	}
 }
