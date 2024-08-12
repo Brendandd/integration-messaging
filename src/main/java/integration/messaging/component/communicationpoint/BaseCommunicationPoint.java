@@ -9,11 +9,11 @@ import integration.messaging.component.BaseMessagingComponent;
  */
 public abstract class BaseCommunicationPoint extends BaseMessagingComponent {
 
-	public BaseCommunicationPoint(String componentName) {
-		super(componentName);
-	}
+    public BaseCommunicationPoint(String componentName) {
+        super(componentName);
+    }
 
-	public String getOptions() {
-		return "";
-	}
+    public String getOptions() {
+        return "";
+    }
 }

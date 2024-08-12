@@ -21,58 +21,58 @@ import integration.messaging.component.SourceComponent;
  */
 public abstract class BaseRoute {
 
-	@Autowired
-	protected CamelContext camelContext;
+    @Autowired
+    protected CamelContext camelContext;
 
-	@Autowired
-	protected ConfigurationService configurationService;
+    @Autowired
+    protected ConfigurationService configurationService;
 
-	protected String name;
+    protected String name;
 
-	private List<Component> components = new ArrayList<Component>();
+    private List<Component> components = new ArrayList<Component>();
 
-	@Autowired
-	private RouteTemplates routeTemplates;
+    @Autowired
+    private RouteTemplates routeTemplates;
 
-	public BaseRoute(String name) {
-		this.name = name;
-	}
+    public BaseRoute(String name) {
+        this.name = name;
+    }
 
-	/**
-	 * Add the message flow from a source component to one or more destination
-	 * components.
-	 * 
-	 * @param sourceComponent
-	 * @param destinationComponents
-	 */
-	public void addFlow(SourceComponent sourceComponent, DestinationComponent... destinationComponents) {
+    /**
+     * Add the message flow from a source component to one or more destination
+     * components.
+     * 
+     * @param sourceComponent
+     * @param destinationComponents
+     */
+    public void addFlow(SourceComponent sourceComponent, DestinationComponent... destinationComponents) {
 
-		for (DestinationComponent destination : destinationComponents) {
-			destination.addSourceComponent(sourceComponent);
-		}
-	}
+        for (DestinationComponent destination : destinationComponents) {
+            destination.addSourceComponent(sourceComponent);
+        }
+    }
 
-	/**
-	 * Associates a component with this route.
-	 * 
-	 * @param component
-	 * @throws Exception
-	 */
-	public void addComponentToRoute(Component component) throws Exception {
-		component.setRoute(name);
-		component.config();
-		components.add(component);
-	}
+    /**
+     * Associates a component with this route.
+     * 
+     * @param component
+     * @throws Exception
+     */
+    public void addComponentToRoute(Component component) throws Exception {
+        component.setRoute(name);
+        component.config();
+        components.add(component);
+    }
 
-	public abstract void configure() throws Exception;
+    public abstract void configure() throws Exception;
 
-	public void start() throws Exception {
-		camelContext.addRoutes(routeTemplates);
+    public void start() throws Exception {
+        camelContext.addRoutes(routeTemplates);
 
-		for (Component component : components) {
-			camelContext.addRoutes(((RouteBuilder) component));
-		}
+        for (Component component : components) {
+            camelContext.addRoutes(((RouteBuilder) component));
+        }
 
-		camelContext.start();
-	}
+        camelContext.start();
+    }
 }

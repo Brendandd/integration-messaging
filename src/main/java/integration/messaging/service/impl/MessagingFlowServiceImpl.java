@@ -34,218 +34,218 @@ import integration.messaging.service.MessagingFlowService;
 @Transactional(propagation = Propagation.REQUIRED)
 public class MessagingFlowServiceImpl implements MessagingFlowService {
 
-	@Autowired
-	private MessageFlowStepRepository messageFlowStepRepository;
+    @Autowired
+    private MessageFlowStepRepository messageFlowStepRepository;
 
-	@Autowired
-	private MessageFlowRepository messageFlowRepository;
+    @Autowired
+    private MessageFlowRepository messageFlowRepository;
 
-	@Autowired
-	private MessageRepository messageRepository;
+    @Autowired
+    private MessageRepository messageRepository;
 
-	@Autowired
-	private ComponentRouteRepository componentRouteRepository;
+    @Autowired
+    private ComponentRouteRepository componentRouteRepository;
 
-	@Autowired
-	private MessageFlowEventRepository eventRepository;
+    @Autowired
+    private MessageFlowEventRepository eventRepository;
 
-	/**
-	 * Records the ACK.
-	 */
-	@Override
-	public MessageFlowStepDto recordAck(long componentRouteId, Map<String, Object> headers, String messageContent,
-	        Long fromMessageFlowStepId) {
-		Optional<MessageFlowStep> fromMessageFlow = null;
+    /**
+     * Records the ACK.
+     */
+    @Override
+    public MessageFlowStepDto recordAck(long componentRouteId, Map<String, Object> headers, String messageContent,
+            Long fromMessageFlowStepId) {
+        Optional<MessageFlowStep> fromMessageFlow = null;
 
-		if (fromMessageFlowStepId != null) {
-			fromMessageFlow = messageFlowStepRepository.findById(fromMessageFlowStepId);
-		}
+        if (fromMessageFlowStepId != null) {
+            fromMessageFlow = messageFlowStepRepository.findById(fromMessageFlowStepId);
+        }
 
-		// Create the message and associated message flow.
-		Message message = createMessage(messageContent, headers, "HL7 ACK");
+        // Create the message and associated message flow.
+        Message message = createMessage(messageContent, headers, "HL7 ACK");
 
-		MessageFlowStep messageFlow = createMessageFlowStep(componentRouteId, message, fromMessageFlow, DirectionEnum.OUTBOUND,
-		        fromMessageFlow.get().getMessageFlowGroup());
+        MessageFlowStep messageFlow = createMessageFlowStep(componentRouteId, message, fromMessageFlow, DirectionEnum.OUTBOUND,
+                fromMessageFlow.get().getMessageFlowGroup());
 
-		MessageFlowStepMapper mapper = new MessageFlowStepMapper();
-		return mapper.doMapping(messageFlow);
-	}
+        MessageFlowStepMapper mapper = new MessageFlowStepMapper();
+        return mapper.doMapping(messageFlow);
+    }
 
-	/**
-	 * Stores a new message/message flow.
-	 */
-	@Override
-	public MessageFlowStepDto recordMessageFlow(long componentRouteId, String messageContent, Map<String, Object> headers,
-	        Long fromMessageFlowStepId, String contentType, DirectionEnum direction) {
-		Optional<MessageFlowStep> fromMessageFlow = null;
-		String fromMessageContent = null;
+    /**
+     * Stores a new message/message flow.
+     */
+    @Override
+    public MessageFlowStepDto recordMessageFlow(long componentRouteId, String messageContent, Map<String, Object> headers,
+            Long fromMessageFlowStepId, String contentType, DirectionEnum direction) {
+        Optional<MessageFlowStep> fromMessageFlow = null;
+        String fromMessageContent = null;
 
-		MessageFlowGroup messageFlow = null;
+        MessageFlowGroup messageFlow = null;
 
-		if (fromMessageFlowStepId != null) {
-			// Not the original incoming message if there is a from message flow id.
-			fromMessageFlow = messageFlowStepRepository.findById(fromMessageFlowStepId);
+        if (fromMessageFlowStepId != null) {
+            // Not the original incoming message if there is a from message flow id.
+            fromMessageFlow = messageFlowStepRepository.findById(fromMessageFlowStepId);
 
-			// If a from message flow id is provided it must exist.
-			if (fromMessageFlow.isEmpty()) {
-				throw new ConfigurationException("from message flow not found. Id: " + fromMessageFlowStepId);
-			}
+            // If a from message flow id is provided it must exist.
+            if (fromMessageFlow.isEmpty()) {
+                throw new ConfigurationException("from message flow not found. Id: " + fromMessageFlowStepId);
+            }
 
-			if (headers != null) {
-				Map<String, Object> fromMessageHeaders = Utils.convertFromJSON(fromMessageFlow.get().getMessage().getHeaders());
-				headers.putAll(fromMessageHeaders);
-			}
+            if (headers != null) {
+                Map<String, Object> fromMessageHeaders = Utils.convertFromJSON(fromMessageFlow.get().getMessage().getHeaders());
+                headers.putAll(fromMessageHeaders);
+            }
 
-			fromMessageContent = fromMessageFlow.get().getMessage().getContent();
-			messageFlow = fromMessageFlow.get().getMessageFlowGroup();
-		} else {
-			messageFlow = new MessageFlowGroup();
-		}
+            fromMessageContent = fromMessageFlow.get().getMessage().getContent();
+            messageFlow = fromMessageFlow.get().getMessageFlowGroup();
+        } else {
+            messageFlow = new MessageFlowGroup();
+        }
 
-		// Create the message and associated message flow.
-		Message message = null;
+        // Create the message and associated message flow.
+        Message message = null;
 
-		if (fromMessageContent != null && fromMessageContent.equals(messageContent)) {
-			message = fromMessageFlow.get().getMessage();
-		} else {
-			message = createMessage(messageContent, headers, contentType);
-		}
+        if (fromMessageContent != null && fromMessageContent.equals(messageContent)) {
+            message = fromMessageFlow.get().getMessage();
+        } else {
+            message = createMessage(messageContent, headers, contentType);
+        }
 
-		messageFlowRepository.save(messageFlow);
+        messageFlowRepository.save(messageFlow);
 
-		MessageFlowStep messageFlowStep = createMessageFlowStep(componentRouteId, message, fromMessageFlow, direction,
-		        messageFlow);
+        MessageFlowStep messageFlowStep = createMessageFlowStep(componentRouteId, message, fromMessageFlow, direction,
+                messageFlow);
 
-		messageFlowStep = messageFlowStepRepository.save(messageFlowStep);
+        messageFlowStep = messageFlowStepRepository.save(messageFlowStep);
 
-		MessageFlowStepMapper mapper = new MessageFlowStepMapper();
-		return mapper.doMapping(messageFlowStep);
-	}
+        MessageFlowStepMapper mapper = new MessageFlowStepMapper();
+        return mapper.doMapping(messageFlowStep);
+    }
 
-	/**
-	 *
-	 */
-	@Override
-	public void recordMessageFlowEvent(long messageFlowId, MessageFlowTypeEvent eventType) {
-		MessageFlowStep messageFlow = findMessageFlowById(messageFlowId);
+    /**
+     *
+     */
+    @Override
+    public void recordMessageFlowEvent(long messageFlowId, MessageFlowTypeEvent eventType) {
+        MessageFlowStep messageFlow = findMessageFlowById(messageFlowId);
 
-		MessageFlowEvent event = new MessageFlowEvent();
-		event.setMessageFlow(messageFlow);
-		event.setType(eventType);
-		eventRepository.save(event);
-	}
+        MessageFlowEvent event = new MessageFlowEvent();
+        event.setMessageFlow(messageFlow);
+        event.setType(eventType);
+        eventRepository.save(event);
+    }
 
-	/**
-	 * Creates and returns a new message.
-	 * 
-	 * @param content
-	 * @param headers
-	 * @return
-	 */
-	private Message createMessage(String content, Map<String, Object> headers, String contentType) {
-		Message message = new Message();
-		message.setContent(content);
-		message.setContentType(contentType);
-		message.setHeaders(Utils.convertToJSON(headers));
-		messageRepository.save(message);
+    /**
+     * Creates and returns a new message.
+     * 
+     * @param content
+     * @param headers
+     * @return
+     */
+    private Message createMessage(String content, Map<String, Object> headers, String contentType) {
+        Message message = new Message();
+        message.setContent(content);
+        message.setContentType(contentType);
+        message.setHeaders(Utils.convertToJSON(headers));
+        messageRepository.save(message);
 
-		return message;
-	}
+        return message;
+    }
 
-	/**
-	 * Creates an returns a message flow object with an optional from message flow.
-	 * 
-	 * @param route
-	 * @param component
-	 * @param message
-	 * @param from
-	 * @return
-	 */
-	private MessageFlowStep createMessageFlowStep(long componentRouteId, Message message, Optional<MessageFlowStep> from,
-	        DirectionEnum direction, MessageFlowGroup messageFlow) {
-		Optional<ComponentRoute> componentRouteOptional = componentRouteRepository.findById(componentRouteId);
+    /**
+     * Creates an returns a message flow object with an optional from message flow.
+     * 
+     * @param route
+     * @param component
+     * @param message
+     * @param from
+     * @return
+     */
+    private MessageFlowStep createMessageFlowStep(long componentRouteId, Message message, Optional<MessageFlowStep> from,
+            DirectionEnum direction, MessageFlowGroup messageFlow) {
+        Optional<ComponentRoute> componentRouteOptional = componentRouteRepository.findById(componentRouteId);
 
-		MessageFlowStep messageFlowStep = new MessageFlowStep();
-		messageFlowStep.setComponentRoute(componentRouteOptional.get());
-		messageFlowStep.setMessage(message);
-		messageFlowStep.setDirection(direction);
+        MessageFlowStep messageFlowStep = new MessageFlowStep();
+        messageFlowStep.setComponentRoute(componentRouteOptional.get());
+        messageFlowStep.setMessage(message);
+        messageFlowStep.setDirection(direction);
 
-		if (from != null) {
-			messageFlowStep.setFromMessageFlowStep(from.get());
-		}
+        if (from != null) {
+            messageFlowStep.setFromMessageFlowStep(from.get());
+        }
 
-		messageFlow.addMessageFlowStep(messageFlowStep);
+        messageFlow.addMessageFlowStep(messageFlowStep);
 
-		return messageFlowStepRepository.save(messageFlowStep);
-	}
+        return messageFlowStepRepository.save(messageFlowStep);
+    }
 
-	/**
-	 * Retrieves a message flowDto by id.
-	 */
-	@Override
-	public MessageFlowStepDto retrieveMessageFlow(long messageFlowId) {
-		Optional<MessageFlowStep> messageFlow = messageFlowStepRepository.findById(messageFlowId);
+    /**
+     * Retrieves a message flowDto by id.
+     */
+    @Override
+    public MessageFlowStepDto retrieveMessageFlow(long messageFlowId) {
+        Optional<MessageFlowStep> messageFlow = messageFlowStepRepository.findById(messageFlowId);
 
-		// The message flow must exist.
-		if (messageFlow.isEmpty()) {
-			throw new ConfigurationException("Message flow not found. Id: " + messageFlowId);
-		}
+        // The message flow must exist.
+        if (messageFlow.isEmpty()) {
+            throw new ConfigurationException("Message flow not found. Id: " + messageFlowId);
+        }
 
-		MessageFlowStepMapper mapper = new MessageFlowStepMapper();
+        MessageFlowStepMapper mapper = new MessageFlowStepMapper();
 
-		return mapper.doMapping(messageFlow.get());
-	}
+        return mapper.doMapping(messageFlow.get());
+    }
 
-	@Override
-	public void filterMessage(long messageFlowId, String reason, String filterName) {
-		MessageFlowStep messageFlow = findMessageFlowById(messageFlowId);
-		messageFlow.setFiltered(true);
+    @Override
+    public void filterMessage(long messageFlowId, String reason, String filterName) {
+        MessageFlowStep messageFlow = findMessageFlowById(messageFlowId);
+        messageFlow.setFiltered(true);
 
-		messageFlow.filterMessage(reason, filterName);
+        messageFlow.filterMessage(reason, filterName);
 
-		messageFlowStepRepository.save(messageFlow);
-	}
+        messageFlowStepRepository.save(messageFlow);
+    }
 
-	@Override
-	public void recordMessageFlowStepError(long messageFlowId, String reason) {
-		MessageFlowStep messageFlow = findMessageFlowById(messageFlowId);
-		messageFlow.setError(true);
+    @Override
+    public void recordMessageFlowStepError(long messageFlowId, String reason) {
+        MessageFlowStep messageFlow = findMessageFlowById(messageFlowId);
+        messageFlow.setError(true);
 
-		messageFlow.errorMessage(reason);
+        messageFlow.errorMessage(reason);
 
-		messageFlowStepRepository.save(messageFlow);
+        messageFlowStepRepository.save(messageFlow);
 
-	}
+    }
 
-	private MessageFlowStep findMessageFlowById(long messageFlowId) {
-		Optional<MessageFlowStep> messageFlow = messageFlowStepRepository.findById(messageFlowId);
+    private MessageFlowStep findMessageFlowById(long messageFlowId) {
+        Optional<MessageFlowStep> messageFlow = messageFlowStepRepository.findById(messageFlowId);
 
-		// The message flow must exist.
-		if (messageFlow.isEmpty()) {
-			throw new ConfigurationException("Message flow not found. Id: " + messageFlowId);
-		}
+        // The message flow must exist.
+        if (messageFlow.isEmpty()) {
+            throw new ConfigurationException("Message flow not found. Id: " + messageFlowId);
+        }
 
-		return messageFlow.get();
-	}
+        return messageFlow.get();
+    }
 
-	@Override
-	public List<MessageFlowEventDto> getEvents(long componentRouteId, int numberToRead, MessageFlowTypeEvent type) {
-		MessageFlowEventMapper mapper = new MessageFlowEventMapper();
+    @Override
+    public List<MessageFlowEventDto> getEvents(long componentRouteId, int numberToRead, MessageFlowTypeEvent type) {
+        MessageFlowEventMapper mapper = new MessageFlowEventMapper();
 
-		List<MessageFlowEventDto> eventDtos = new ArrayList<>();
+        List<MessageFlowEventDto> eventDtos = new ArrayList<>();
 
-		List<MessageFlowEvent> events = eventRepository.getEvents(componentRouteId, type, numberToRead);
+        List<MessageFlowEvent> events = eventRepository.getEvents(componentRouteId, type, numberToRead);
 
-		for (MessageFlowEvent event : events) {
-			eventDtos.add(mapper.doMapping(event));
-		}
+        for (MessageFlowEvent event : events) {
+            eventDtos.add(mapper.doMapping(event));
+        }
 
-		return eventDtos;
-	}
+        return eventDtos;
+    }
 
-	@Override
-	public void deleteEvent(long eventId) {
-		eventRepository.deleteById(eventId);
-	}
+    @Override
+    public void deleteEvent(long eventId) {
+        eventRepository.deleteById(eventId);
+    }
 
 }

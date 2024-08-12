@@ -19,14 +19,14 @@ import integration.messaging.component.SourceComponent;
  *
  */
 public abstract class ProcessingStep extends BaseMessagingComponent implements SourceComponent, DestinationComponent {
-	protected List<String> sourceComponentPaths = new ArrayList<>();
+    protected List<String> sourceComponentPaths = new ArrayList<>();
 
-	public ProcessingStep(String componentName) {
-		super(componentName);
-	}
+    public ProcessingStep(String componentName) {
+        super(componentName);
+    }
 
-	@Override
-	public void addSourceComponent(SourceComponent sourceComponent) {
-		this.sourceComponentPaths.add(sourceComponent.getIdentifier().getComponentPath());
-	}
+    @Override
+    public void addSourceComponent(SourceComponent sourceComponent) {
+        this.sourceComponentPaths.add(sourceComponent.getIdentifier().getComponentPath());
+    }
 }

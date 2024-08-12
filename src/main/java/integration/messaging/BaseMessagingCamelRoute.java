@@ -10,23 +10,23 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public abstract class BaseMessagingCamelRoute extends RouteBuilder {
 
-	@Autowired
-	protected MessageProcessor messageProcessor;
+    @Autowired
+    protected MessageProcessor messageProcessor;
 
-	protected ComponentIdentifier identifier;
+    protected ComponentIdentifier identifier;
 
-	protected boolean isInboundRunning;
-	protected boolean isOutboundRunning;
+    protected boolean isInboundRunning;
+    protected boolean isOutboundRunning;
 
-	public void setIdentifier(ComponentIdentifier identifier) {
-		this.identifier = identifier;
-	}
+    public void setIdentifier(ComponentIdentifier identifier) {
+        this.identifier = identifier;
+    }
 
-	public void setInboundRunning(boolean isInboundRunning) {
-		this.isInboundRunning = isInboundRunning;
-	}
+    public void setInboundRunning(boolean isInboundRunning) {
+        this.isInboundRunning = isInboundRunning;
+    }
 
-	public void setOutboundRunning(boolean isOutboundRunning) {
-		this.isOutboundRunning = isOutboundRunning;
-	}
+    public void setOutboundRunning(boolean isOutboundRunning) {
+        this.isOutboundRunning = isOutboundRunning;
+    }
 }

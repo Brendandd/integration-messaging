@@ -35,277 +35,277 @@ import integration.messaging.service.MessagingFlowService;
  */
 public abstract class BaseMessagingComponent extends RouteBuilder implements Component {
 
-	@Autowired
-	protected CamelContext camelContext;
+    @Autowired
+    protected CamelContext camelContext;
 
-	public static final String ERROR_MESSAGE = "ERROR_MESSAGE";
+    public static final String ERROR_MESSAGE = "ERROR_MESSAGE";
 
-	@Autowired
-	protected Ignite ignite;
+    @Autowired
+    protected Ignite ignite;
 
-	@Autowired
-	protected MessageProcessor messageProcessor;
+    @Autowired
+    protected MessageProcessor messageProcessor;
 
-	@Autowired
-	protected ConfigurationService configurationService;
+    @Autowired
+    protected ConfigurationService configurationService;
 
-	protected ComponentIdentifier identifier;
+    protected ComponentIdentifier identifier;
 
-	protected boolean isInboundRunning;
-	protected boolean isOutboundRunning;
+    protected boolean isInboundRunning;
+    protected boolean isOutboundRunning;
 
-	protected Map<String, String> componentProperties;
+    protected Map<String, String> componentProperties;
 
-	@Autowired
-	protected MessagingFlowService messagingFlowService;
+    @Autowired
+    protected MessagingFlowService messagingFlowService;
 
-	@Autowired
-	protected ProducerTemplate producerTemplate;
+    @Autowired
+    protected ProducerTemplate producerTemplate;
 
-	public BaseMessagingComponent(String componentName) {
-		this.identifier = new ComponentIdentifier(componentName);
-	}
+    public BaseMessagingComponent(String componentName) {
+        this.identifier = new ComponentIdentifier(componentName);
+    }
 
-	/**
-	 * The content type handled by this component.
-	 * 
-	 * @return
-	 */
-	public abstract String getContentType();
+    /**
+     * The content type handled by this component.
+     * 
+     * @return
+     */
+    public abstract String getContentType();
 
-	@Override
-	public void config() throws Exception {
-		// Get the route
-		RouteDto routeDto = configurationService.getRouteByName(getIdentifier().getRouteName());
+    @Override
+    public void config() throws Exception {
+        // Get the route
+        RouteDto routeDto = configurationService.getRouteByName(getIdentifier().getRouteName());
 
-		if (routeDto == null) {
-			throw new ConfigurationException("Route not found. Route name: " + getIdentifier().getRouteName());
-		}
+        if (routeDto == null) {
+            throw new ConfigurationException("Route not found. Route name: " + getIdentifier().getRouteName());
+        }
 
-		// Get the component
-		ComponentDto componentDto = configurationService.getComponentByName(getIdentifier().getComponentName());
+        // Get the component
+        ComponentDto componentDto = configurationService.getComponentByName(getIdentifier().getComponentName());
 
-		if (componentDto == null) {
-			throw new ConfigurationException("Component not found. Component name: " + getIdentifier().getComponentName());
-		}
+        if (componentDto == null) {
+            throw new ConfigurationException("Component not found. Component name: " + getIdentifier().getComponentName());
+        }
 
-		// Now get the component route object. This will throw an exception if the
-		// component is not on this route.
-		ComponentRouteDto componentRouteDto = configurationService.getComponentRoute(componentDto.getId(), routeDto.getId());
+        // Now get the component route object. This will throw an exception if the
+        // component is not on this route.
+        ComponentRouteDto componentRouteDto = configurationService.getComponentRoute(componentDto.getId(), routeDto.getId());
 
-		getIdentifier().setComponentRouteId(componentRouteDto.getId());
-		getIdentifier().setRouteId(routeDto.getId());
-		getIdentifier().setComponentId(componentDto.getId());
+        getIdentifier().setComponentRouteId(componentRouteDto.getId());
+        getIdentifier().setRouteId(routeDto.getId());
+        getIdentifier().setComponentId(componentDto.getId());
 
-		componentProperties = componentDto.getProperties();
+        componentProperties = componentDto.getProperties();
 
-		// Now we need to read the component state from the database to see if it should
-		// be started on startup.
-		isInboundRunning = configurationService.isInboundRunning(componentRouteDto.getId());
-		isOutboundRunning = configurationService.isOutboundRunning(componentRouteDto.getId());
-	}
+        // Now we need to read the component state from the database to see if it should
+        // be started on startup.
+        isInboundRunning = configurationService.isInboundRunning(componentRouteDto.getId());
+        isOutboundRunning = configurationService.isOutboundRunning(componentRouteDto.getId());
+    }
 
-	public List<String> getRoutes(Exchange exchange) {
-		List<Route> allRoutes = exchange.getContext().getRoutes();
+    public List<String> getRoutes(Exchange exchange) {
+        List<Route> allRoutes = exchange.getContext().getRoutes();
 
-		List<String> routeIds = new ArrayList<String>();
+        List<String> routeIds = new ArrayList<String>();
 
-		for (Route route : allRoutes) {
-			if (route.getGroup() != null && route.getGroup().equals(identifier.getComponentPath())) {
-				routeIds.add(route.getId());
-			}
-		}
+        for (Route route : allRoutes) {
+            if (route.getGroup() != null && route.getGroup().equals(identifier.getComponentPath())) {
+                routeIds.add(route.getId());
+            }
+        }
 
-		return routeIds;
-	}
+        return routeIds;
+    }
 
-	/**
-	 * Stops the inbound message flow into this component.
-	 * 
-	 * @param exchange
-	 * @throws Exception
-	 */
-	public void stopInbound(Exchange exchange) throws Exception {
-		List<String> allRoutes = getRoutes(exchange);
+    /**
+     * Stops the inbound message flow into this component.
+     * 
+     * @param exchange
+     * @throws Exception
+     */
+    public void stopInbound(Exchange exchange) throws Exception {
+        List<String> allRoutes = getRoutes(exchange);
 
-		for (String route : allRoutes) {
-			if (route.startsWith("messageReceiver")) {
-				exchange.getContext().getRouteController().stopRoute(route);
-			}
-		}
-	}
+        for (String route : allRoutes) {
+            if (route.startsWith("messageReceiver")) {
+                exchange.getContext().getRouteController().stopRoute(route);
+            }
+        }
+    }
 
-	/**
-	 * Stops the outbound message flow from this component.
-	 * 
-	 * @param exchange
-	 * @throws Exception
-	 */
-	public void stopOutbound(Exchange exchange) throws Exception {
-		List<String> allRoutes = getRoutes(exchange);
+    /**
+     * Stops the outbound message flow from this component.
+     * 
+     * @param exchange
+     * @throws Exception
+     */
+    public void stopOutbound(Exchange exchange) throws Exception {
+        List<String> allRoutes = getRoutes(exchange);
 
-		for (String route : allRoutes) {
-			if (route.startsWith("messageSender")) {
-				exchange.getContext().getRouteController().stopRoute(route);
-			}
-		}
-	}
+        for (String route : allRoutes) {
+            if (route.startsWith("messageSender")) {
+                exchange.getContext().getRouteController().stopRoute(route);
+            }
+        }
+    }
 
-	/**
-	 * Stops both the inbound and outbound message flow to/from this component.
-	 * 
-	 * @param exchange
-	 * @throws Exception
-	 */
-	public void stopEntireComponent(Exchange exchange) throws Exception {
-		List<String> allRoutes = getRoutes(exchange);
+    /**
+     * Stops both the inbound and outbound message flow to/from this component.
+     * 
+     * @param exchange
+     * @throws Exception
+     */
+    public void stopEntireComponent(Exchange exchange) throws Exception {
+        List<String> allRoutes = getRoutes(exchange);
 
-		for (String route : allRoutes) {
-			exchange.getContext().getRouteController().stopRoute(route);
-		}
-	}
+        for (String route : allRoutes) {
+            exchange.getContext().getRouteController().stopRoute(route);
+        }
+    }
 
-	/**
-	 * Starts the inbound message flow into this component.
-	 * 
-	 * @param exchange
-	 * @throws Exception
-	 */
-	public void startInbound(Exchange exchange) throws Exception {
-		List<String> allRoutes = getRoutes(exchange);
+    /**
+     * Starts the inbound message flow into this component.
+     * 
+     * @param exchange
+     * @throws Exception
+     */
+    public void startInbound(Exchange exchange) throws Exception {
+        List<String> allRoutes = getRoutes(exchange);
 
-		for (String route : allRoutes) {
-			if (route.startsWith("messageReceiver")) {
-				exchange.getContext().getRouteController().startRoute(route);
-			}
-		}
-	}
+        for (String route : allRoutes) {
+            if (route.startsWith("messageReceiver")) {
+                exchange.getContext().getRouteController().startRoute(route);
+            }
+        }
+    }
 
-	/**
-	 * Starts the outbound message flow from this component.
-	 * 
-	 * @param exchange
-	 * @throws Exception
-	 */
-	public void startOutbound(Exchange exchange) throws Exception {
-		List<String> allRoutes = getRoutes(exchange);
+    /**
+     * Starts the outbound message flow from this component.
+     * 
+     * @param exchange
+     * @throws Exception
+     */
+    public void startOutbound(Exchange exchange) throws Exception {
+        List<String> allRoutes = getRoutes(exchange);
 
-		for (String route : allRoutes) {
-			if (route.startsWith("messageSender")) {
-				exchange.getContext().getRouteController().startRoute(route);
-			}
-		}
-	}
+        for (String route : allRoutes) {
+            if (route.startsWith("messageSender")) {
+                exchange.getContext().getRouteController().startRoute(route);
+            }
+        }
+    }
 
-	/**
-	 * Starts both the inbound and outbound flows to/from this component.
-	 * 
-	 * @param exchange
-	 * @throws Exception
-	 */
-	public void startEntireComponent(Exchange exchange) throws Exception {
-		List<String> allRoutes = getRoutes(exchange);
+    /**
+     * Starts both the inbound and outbound flows to/from this component.
+     * 
+     * @param exchange
+     * @throws Exception
+     */
+    public void startEntireComponent(Exchange exchange) throws Exception {
+        List<String> allRoutes = getRoutes(exchange);
 
-		for (String route : allRoutes) {
-			exchange.getContext().getRouteController().startRoute(route);
-		}
-	}
+        for (String route : allRoutes) {
+            exchange.getContext().getRouteController().startRoute(route);
+        }
+    }
 
-	@Override
-	public ComponentIdentifier getIdentifier() {
-		return identifier;
-	}
+    @Override
+    public ComponentIdentifier getIdentifier() {
+        return identifier;
+    }
 
-	public void setIdentifier(ComponentIdentifier identifier) {
-		this.identifier = identifier;
-	}
+    public void setIdentifier(ComponentIdentifier identifier) {
+        this.identifier = identifier;
+    }
 
-	/**
-	 * A timer to process messages which have completed inbound prossing.
-	 */
-	@Scheduled(fixedRate = 100)
-	public void processComponentInboundProcessingCompleteEvents() {
-		if (!camelContext.isStarted()) {
-			return;
-		}
+    /**
+     * A timer to process messages which have completed inbound prossing.
+     */
+    @Scheduled(fixedRate = 100)
+    public void processComponentInboundProcessingCompleteEvents() {
+        if (!camelContext.isStarted()) {
+            return;
+        }
 
-		IgniteCache<String, Integer> cache = ignite.getOrCreateCache("eventCache3");
+        IgniteCache<String, Integer> cache = ignite.getOrCreateCache("eventCache3");
 
-		List<MessageFlowEventDto> events = null;
+        List<MessageFlowEventDto> events = null;
 
-		Lock lock = cache.lock(MessageFlowTypeEvent.COMPONENT_INBOUND_PROCESSING_COMPLETE + "-" + identifier.getComponentPath());
+        Lock lock = cache.lock(MessageFlowTypeEvent.COMPONENT_INBOUND_PROCESSING_COMPLETE + "-" + identifier.getComponentPath());
 
-		try {
-			// Acquire the lock
-			lock.lock();
+        try {
+            // Acquire the lock
+            lock.lock();
 
-			events = messagingFlowService.getEvents(identifier.getComponentRouteId(), 20,
-			        MessageFlowTypeEvent.COMPONENT_INBOUND_PROCESSING_COMPLETE);
+            events = messagingFlowService.getEvents(identifier.getComponentRouteId(), 20,
+                    MessageFlowTypeEvent.COMPONENT_INBOUND_PROCESSING_COMPLETE);
 
-			// Each event read we add to the queue and then delete the event and update the
-			// master table.
-			for (MessageFlowEventDto event : events) {
-				long messageFlowId = event.getMessageFlowId();
+            // Each event read we add to the queue and then delete the event and update the
+            // master table.
+            for (MessageFlowEventDto event : events) {
+                long messageFlowId = event.getMessageFlowId();
 
-				producerTemplate.sendBodyAndHeader("direct:handleInboundProcessingCompleteEvent-" + identifier.getComponentPath(),
-				        event.getId(), MessageProcessor.MESSAGE_FLOW_STEP_ID, messageFlowId);
-			}
-		} finally {
-			// Release the lock
-			lock.unlock();
-		}
-	}
+                producerTemplate.sendBodyAndHeader("direct:handleInboundProcessingCompleteEvent-" + identifier.getComponentPath(),
+                        event.getId(), MessageProcessor.MESSAGE_FLOW_STEP_ID, messageFlowId);
+            }
+        } finally {
+            // Release the lock
+            lock.unlock();
+        }
+    }
 
-	/**
-	 * A timer to process messages which have completed inbound processing.
-	 */
-	@Scheduled(fixedRate = 100)
-	public void processComponentOutboundProcessingCompleteEvents() {
-		if (!camelContext.isStarted()) {
-			return;
-		}
+    /**
+     * A timer to process messages which have completed inbound processing.
+     */
+    @Scheduled(fixedRate = 100)
+    public void processComponentOutboundProcessingCompleteEvents() {
+        if (!camelContext.isStarted()) {
+            return;
+        }
 
-		IgniteCache<String, Integer> cache = ignite.getOrCreateCache("eventCache3");
+        IgniteCache<String, Integer> cache = ignite.getOrCreateCache("eventCache3");
 
-		List<MessageFlowEventDto> events = null;
+        List<MessageFlowEventDto> events = null;
 
-		Lock lock = cache.lock(MessageFlowTypeEvent.COMPONENT_OUTBOUND_PROCESSING_COMPLETE + "-" + identifier.getComponentPath());
+        Lock lock = cache.lock(MessageFlowTypeEvent.COMPONENT_OUTBOUND_PROCESSING_COMPLETE + "-" + identifier.getComponentPath());
 
-		try {
-			// Acquire the lock
-			lock.lock();
+        try {
+            // Acquire the lock
+            lock.lock();
 
-			events = messagingFlowService.getEvents(identifier.getComponentRouteId(), 20,
-			        MessageFlowTypeEvent.COMPONENT_OUTBOUND_PROCESSING_COMPLETE);
+            events = messagingFlowService.getEvents(identifier.getComponentRouteId(), 20,
+                    MessageFlowTypeEvent.COMPONENT_OUTBOUND_PROCESSING_COMPLETE);
 
-			// Each event read we add to the queue and then delete the event and update the
-			// master table.
-			for (MessageFlowEventDto event : events) {
-				long messageFlowId = event.getMessageFlowId();
+            // Each event read we add to the queue and then delete the event and update the
+            // master table.
+            for (MessageFlowEventDto event : events) {
+                long messageFlowId = event.getMessageFlowId();
 
-				producerTemplate.sendBodyAndHeader("direct:handleOutboundProcessCompleteEvent-" + identifier.getComponentPath(),
-				        event.getId(), MessageProcessor.MESSAGE_FLOW_STEP_ID, messageFlowId);
-			}
-		} finally {
-			// Release the lock
-			lock.unlock();
-		}
-	}
+                producerTemplate.sendBodyAndHeader("direct:handleOutboundProcessCompleteEvent-" + identifier.getComponentPath(),
+                        event.getId(), MessageProcessor.MESSAGE_FLOW_STEP_ID, messageFlowId);
+            }
+        } finally {
+            // Release the lock
+            lock.unlock();
+        }
+    }
 
-	@Override
-	public void setRoute(String route) {
-		identifier.setRouteName(route);
-	}
+    @Override
+    public void setRoute(String route) {
+        identifier.setRouteName(route);
+    }
 
-	@Override
-	public void configure() throws Exception {
-		from("direct:filterMessage-" + identifier.getComponentPath()).process(new Processor() {
+    @Override
+    public void configure() throws Exception {
+        from("direct:filterMessage-" + identifier.getComponentPath()).process(new Processor() {
 
-			@Override
-			public void process(Exchange exchange) throws Exception {
-				// TODO change this - filter the message in the db
-				System.out.println("Filtered");
-			}
-		});
-	}
+            @Override
+            public void process(Exchange exchange) throws Exception {
+                // TODO change this - filter the message in the db
+                System.out.println("Filtered");
+            }
+        });
+    }
 }

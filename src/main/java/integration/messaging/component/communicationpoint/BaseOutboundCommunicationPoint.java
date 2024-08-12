@@ -13,16 +13,16 @@ import integration.messaging.component.SourceComponent;
  *
  */
 public abstract class BaseOutboundCommunicationPoint extends BaseCommunicationPoint implements DestinationComponent {
-	public BaseOutboundCommunicationPoint(String componentName) {
-		super(componentName);
-	}
+    public BaseOutboundCommunicationPoint(String componentName) {
+        super(componentName);
+    }
 
-	protected List<String> sourceComponentPaths = new ArrayList<>();
+    protected List<String> sourceComponentPaths = new ArrayList<>();
 
-	public abstract String getToUriString();
+    public abstract String getToUriString();
 
-	@Override
-	public void addSourceComponent(SourceComponent sourceComponent) {
-		this.sourceComponentPaths.add(sourceComponent.getIdentifier().getComponentPath());
-	}
+    @Override
+    public void addSourceComponent(SourceComponent sourceComponent) {
+        this.sourceComponentPaths.add(sourceComponent.getIdentifier().getComponentPath());
+    }
 }

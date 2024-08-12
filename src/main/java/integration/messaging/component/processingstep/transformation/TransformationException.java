@@ -8,14 +8,14 @@ package integration.messaging.component.processingstep.transformation;
  */
 public class TransformationException extends Exception {
 
-	private static final long serialVersionUID = 200520031395049131L;
+    private static final long serialVersionUID = 200520031395049131L;
 
-	public TransformationException(String message) {
-		super(message);
-	}
+    public TransformationException(String message) {
+        super(message);
+    }
 
-	public TransformationException(String message, Throwable cause) {
-		super(message, cause);
-	}
+    public TransformationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
 }

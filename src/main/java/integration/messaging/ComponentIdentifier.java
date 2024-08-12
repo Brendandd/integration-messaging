@@ -6,57 +6,57 @@ package integration.messaging;
  * @author Brendan Douglas
  */
 public class ComponentIdentifier {
-	private long componentRouteId;
-	private long routeId;
-	private long componentId;
-	private String componentName;
-	private String routeName;
+    private long componentRouteId;
+    private long routeId;
+    private long componentId;
+    private String componentName;
+    private String routeName;
 
-	public ComponentIdentifier(String componentName) {
-		this.componentName = componentName;
-	}
+    public ComponentIdentifier(String componentName) {
+        this.componentName = componentName;
+    }
 
-	public String getComponentName() {
-		return componentName;
-	}
+    public String getComponentName() {
+        return componentName;
+    }
 
-	public String getRouteName() {
-		return routeName;
-	}
+    public String getRouteName() {
+        return routeName;
+    }
 
-	public void setComponentName(String componentName) {
-		this.componentName = componentName;
-	}
+    public void setComponentName(String componentName) {
+        this.componentName = componentName;
+    }
 
-	public void setRouteName(String routeName) {
-		this.routeName = routeName;
-	}
+    public void setRouteName(String routeName) {
+        this.routeName = routeName;
+    }
 
-	public String getComponentPath() {
-		return routeName + "-" + componentName;
-	}
+    public String getComponentPath() {
+        return routeName + "-" + componentName;
+    }
 
-	public long getComponentRouteId() {
-		return componentRouteId;
-	}
+    public long getComponentRouteId() {
+        return componentRouteId;
+    }
 
-	public void setComponentRouteId(long componentRouteId) {
-		this.componentRouteId = componentRouteId;
-	}
+    public void setComponentRouteId(long componentRouteId) {
+        this.componentRouteId = componentRouteId;
+    }
 
-	public long getRouteId() {
-		return routeId;
-	}
+    public long getRouteId() {
+        return routeId;
+    }
 
-	public long getComponentId() {
-		return componentId;
-	}
+    public long getComponentId() {
+        return componentId;
+    }
 
-	public void setRouteId(long routeId) {
-		this.routeId = routeId;
-	}
+    public void setRouteId(long routeId) {
+        this.routeId = routeId;
+    }
 
-	public void setComponentId(long componentId) {
-		this.componentId = componentId;
-	}
+    public void setComponentId(long componentId) {
+        this.componentId = componentId;
+    }
 }

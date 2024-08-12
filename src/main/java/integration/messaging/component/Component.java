@@ -8,9 +8,9 @@ import integration.messaging.ComponentIdentifier;
  * @author Brendan Douglas
  */
 public interface Component {
-	ComponentIdentifier getIdentifier();
+    ComponentIdentifier getIdentifier();
 
-	void setRoute(String route);
+    void setRoute(String route);
 
-	void config() throws Exception;
+    void config() throws Exception;
 }

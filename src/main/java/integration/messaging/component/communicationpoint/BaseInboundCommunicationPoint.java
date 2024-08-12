@@ -10,9 +10,9 @@ import integration.messaging.component.SourceComponent;
  */
 public abstract class BaseInboundCommunicationPoint extends BaseCommunicationPoint implements SourceComponent {
 
-	public BaseInboundCommunicationPoint(String componentName) {
-		super(componentName);
-	}
+    public BaseInboundCommunicationPoint(String componentName) {
+        super(componentName);
+    }
 
-	public abstract String getFromUriString();
+    public abstract String getFromUriString();
 }

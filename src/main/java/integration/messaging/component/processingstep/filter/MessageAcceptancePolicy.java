@@ -7,10 +7,10 @@ package integration.messaging.component.processingstep.filter;
  *
  */
 public abstract class MessageAcceptancePolicy extends MessageFlowPolicy {
-	public static final String ACCEPT_MESSAGE = "ACCEPT_MESSAGE";
+    public static final String ACCEPT_MESSAGE = "ACCEPT_MESSAGE";
 
-	@Override
-	public String getHeader() {
-		return ACCEPT_MESSAGE;
-	}
+    @Override
+    public String getHeader() {
+        return ACCEPT_MESSAGE;
+    }
 }

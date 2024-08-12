@@ -12,18 +12,18 @@ import org.springframework.stereotype.Component;
 @Component("forwardAllMessages")
 public class ForwardAllMessages extends MessageForwardingPolicy {
 
-	@Override
-	public boolean applyPolicy(String messageContent) throws FilterException {
-		return true;
-	}
+    @Override
+    public boolean applyPolicy(String messageContent) throws FilterException {
+        return true;
+    }
 
-	@Override
-	public String getFilterReason() {
-		return "";
-	}
+    @Override
+    public String getFilterReason() {
+        return "";
+    }
 
-	@Override
-	public String getName() {
-		return "Forward All Messages";
-	}
+    @Override
+    public String getName() {
+        return "Forward All Messages";
+    }
 }

@@ -11,16 +11,16 @@ import org.apache.camel.Exchange;
  */
 public abstract class MessageSplitter {
 
-	public String[] split(Exchange exchange, String messageBody) throws SplitterException {
-		try {
-			String[] splitMessages = splitMessage(exchange, messageBody);
-			exchange.getMessage().setHeader("splitCount", splitMessages.length);
+    public String[] split(Exchange exchange, String messageBody) throws SplitterException {
+        try {
+            String[] splitMessages = splitMessage(exchange, messageBody);
+            exchange.getMessage().setHeader("splitCount", splitMessages.length);
 
-			return splitMessages;
-		} catch (Exception e) {
-			throw new SplitterException("Error splitting the message", e);
-		}
-	}
+            return splitMessages;
+        } catch (Exception e) {
+            throw new SplitterException("Error splitting the message", e);
+        }
+    }
 
-	public abstract String[] splitMessage(Exchange exchange, String messageBody) throws SplitterException;
+    public abstract String[] splitMessage(Exchange exchange, String messageBody) throws SplitterException;
 }
