@@ -22,83 +22,153 @@ public class RouteTemplates extends RouteBuilder {
 
     @Override
     public void configure() throws Exception {
+        // Common route templates.  Routes are created from templates.
 
-        // Reads a message from the inbound processing complete queue.
-        routeTemplate("readMessageFromInboundProcessingCompleteQueueTemplate").templateParameter("isOutboundRunning")
-                .templateParameter("componentPath").templateParameter("componentRouteId")
-                .from("jms:queue:inboundProcessingComplete-{{componentPath}}?acknowledgementModeName=CLIENT_ACKNOWLEDGE&concurrentConsumers=5")
-                .autoStartup("{{isOutboundRunning}}").routeGroup("{{componentPath}}").transacted().transform()
+
+        // A route which is called after an inbound communications points outbound processor has been completed.  The result of this route is either a completion event is created
+        // or the message is filtered.  An inbound communication point does no message processing other than determining if the message should be filtered or not.
+        routeTemplate("inboundCommunicationPointOutboundProcessorTemplate")
+            .templateParameter("isOutboundRunning")
+            .templateParameter("componentPath")
+            .templateParameter("contentType")
+            .from("direct:outboundProcessor-{{componentPath}}")
+            .routeId("outboundProcessor-{{componentPath}}")
+            .routeGroup("{{componentPath}}")
+            .autoStartup("{{isOutboundRunning}}")
+            .routeGroup("{{componentPath}}")
+            .setHeader("contentType", constant("{{contentType}}"))
+            .bean(messageProcessor, "storeOutboundMessageFlowStep(*,{{componentRouteId}})")
+
+            // Filter the outbound message if required.
+            .bean("{{messageForwardingPolicy}}", "applyPolicy")
+
+            .choice()
+                .when(header(MessageForwardingPolicy.FORWARD_MESSAGE).isEqualTo(false))
+                    .to("direct:filterMessage-{{componentPath}}")
+                .otherwise()
+                    .bean(messageProcessor, "recordOutboundProcessingCompleteEvent(*)")
+                .end();
+
+        
+        
+        // A route called within a transactional outbox process to add a message flow step event id to the inbound processing complete event queue.  This routes adds the id to the queue and
+        // deletes the source event within a single transaction.  A queue is used here as we only want a single consumer to process the message and the consumer here is the components
+        // outbound processor.
+        routeTemplate("addToInboundProcessingCompleteQueueTemplate")
+            .templateParameter("isOutboundRunning")
+            .templateParameter("componentPath")
+            .from("direct:addToInboundProcessingCompleteQueue-{{componentPath}}")
+            .routeId("addToInboundProcessingCompleteQueue-{{componentPath}}")
+            .routeGroup("{{componentPath}}")
+            .transacted()
+                .bean(messageProcessor, "deleteMessageFlowEvent(*)")
+                .process(new Processor() {
+
+                    @Override
+                    public void process(Exchange exchange) throws Exception {
+                        long workFlowStepId = (long) exchange.getMessage().getHeader(MessageProcessor.MESSAGE_FLOW_STEP_ID);
+                        exchange.getMessage().setBody(workFlowStepId);
+                    }
+    
+                })
+            .to("jms:queue:inboundProcessingComplete-{{componentPath}}");
+
+        
+        // A route called within a transactional outbox process to add a message flow step event id to a virtual topic.  This routes adds the id to the topic and deletes the source event 
+        // within a single transaction.  A topic is used here as the message can be consumed by multiple other components.  This route is the final route in any component which
+        // produces messages for other components to consume.
+        routeTemplate("addToOutboundProcessingCompleteTopicTemplate")
+            .templateParameter("componentPath")
+            .from("direct:addToOutboundProcessingCompleteTopic-{{componentPath}}")
+            .routeId("addToOutboundProcessingCompleteTopic-{{componentPath}}")
+            .routeGroup("{{componentPath}}")
+            .transacted()
+                .bean(messageProcessor, "deleteMessageFlowEvent(*)")
+                .process(new Processor() {
+
+                    @Override
+                    public void process(Exchange exchange) throws Exception {
+                        long workFlowStepId = (long) exchange.getMessage().getHeader(MessageProcessor.MESSAGE_FLOW_STEP_ID);
+                        exchange.getMessage().setBody(workFlowStepId);
+                    }
+                })
+            .to("jms:topic:VirtualTopic.{{componentPath}}");
+    
+        
+        
+        // Entry route for a components outbound processor.  This route reads a message id from an inbound processing complete queue and then performs the required outbound processing. 
+        // The actual outbound processing is done in the direct:outboundProcessor route which the message is forwarded to.  This will vary depending on the type of component.
+        routeTemplate("readFromInboundProcessingCompleteQueueTemplate")
+            .templateParameter("isOutboundRunning")
+            .templateParameter("componentPath")
+            .templateParameter("componentRouteId")
+            .templateParameter("contentType")
+            .from("jms:queue:inboundProcessingComplete-{{componentPath}}?acknowledgementModeName=CLIENT_ACKNOWLEDGE&concurrentConsumers=5")
+            .autoStartup("{{isOutboundRunning}}")
+            .routeGroup("{{componentPath}}")
+            .setHeader("contentType", constant("{{contentType}}"))
+            .transacted()
+                .transform()
                 .method(messageProcessor, "replaceMessageBodyIdWithMessageContent(*)")
                 .to("direct:outboundProcessor-{{componentPath}}");
-
-        // The outbound processing for a inbound communication point.
-        routeTemplate("inboundCommunicationPointOutboundProcessorTemplate").templateParameter("isOutboundRunning")
-                .templateParameter("componentPath").from("direct:outboundProcessor-{{componentPath}}")
-                .routeId("outboundProcessor-{{componentPath}}").routeGroup("{{componentPath}}")
-                .autoStartup("{{isOutboundRunning}}").routeGroup("{{componentPath}}")
-                .bean(messageProcessor, "storeOutboundMessageFlowStep(*,{{componentRouteId}})")
-
-                // Filter the outbound message if required.
-                .bean("{{messageForwardingPolicy}}", "applyPolicy")
-
-                .choice().when(header(MessageForwardingPolicy.FORWARD_MESSAGE).isEqualTo(false))
-                .to("direct:filterMessage-{{componentPath}}").otherwise()
-                .bean(messageProcessor, "recordOutboundProcessingCompleteEvent(*)").end();
-
-        // The outbound processing for a inbound communication point.
-        routeTemplate("handleInboundProcessingCompleteEventTemplate").templateParameter("isOutboundRunning")
-                .templateParameter("componentPath").from("direct:handleInboundProcessingCompleteEvent-{{componentPath}}")
-                .routeId("handleInboundProcessingCompleteEvent-{{componentPath}}").routeGroup("{{componentPath}}").transacted()
-                .bean(messageProcessor, "deleteMessageFlowEvent(*)").process(new Processor() {
-
-                    @Override
-                    public void process(Exchange exchange) throws Exception {
-                        long workFlowStepId = (long) exchange.getMessage().getHeader(MessageProcessor.MESSAGE_FLOW_STEP_ID);
-                        exchange.getMessage().setBody(workFlowStepId);
-                    }
-
-                }).to("jms:queue:inboundProcessingComplete-{{componentPath}}");
-
-        routeTemplate("componentInboundFilterableTopicConsumer").templateParameter("isInboundRunning")
-                .templateParameter("componentPath").templateParameter("componentRouteId")
+        
+        
+        
+        // A route to read a message from a topic, store the message flow, and then either accept the message which allows further processing or filter the message.
+        // This is the entry point for processing steps and outbound communication points.
+        routeTemplate("componentInboundTopicConsumerTemplate")
+            .templateParameter("isInboundRunning")
+                .templateParameter("componentPath")
+                .templateParameter("componentRouteId")
+                .templateParameter("contentType")
                 .from("jms:VirtualTopic.{{sourceComponentPath}}::Consumer.{{componentPath}}.VirtualTopic.{{sourceComponentPath}}?acknowledgementModeName=CLIENT_ACKNOWLEDGE&concurrentConsumers=5")
-                .routeId("messageReceiver-{{componentPath}}-{{sourceComponentPath}}").routeGroup("{{componentPath}}")
+                .routeId("messageReceiver-{{componentPath}}-{{sourceComponentPath}}")
+                .routeGroup("{{componentPath}}")
+                .setHeader("contentType", constant("{{contentType}}"))
 
-                .autoStartup("{{isInboundRunning}}").transacted("").transform()
-                .method(messageProcessor, "replaceMessageBodyIdWithMessageContent(*)")
-                .bean(messageProcessor, "storeInboundMessageFlowStep(*,{{componentRouteId}})")
+                .autoStartup("{{isInboundRunning}}")
+                .transacted()
+                    .transform()
+                    .method(messageProcessor, "replaceMessageBodyIdWithMessageContent(*)")
+                    .bean(messageProcessor, "storeInboundMessageFlowStep(*,{{componentRouteId}})")
 
-                // Inbound message filter.
-                .bean("{{messageAcceptancePolicy}}", "applyPolicy").choice()
-                .when(header(MessageAcceptancePolicy.ACCEPT_MESSAGE).isEqualTo(false))
-                .to("direct:filterMessage-{{componentPath}}").otherwise()
-                .bean(messageProcessor, "recordInboundProcessingCompleteEvent(*)").end();
+                    // Inbound message filter.
+                    .bean("{{messageAcceptancePolicy}}", "applyPolicy")
+                    
+                    .choice()
+                        .when(header(MessageAcceptancePolicy.ACCEPT_MESSAGE).isEqualTo(false))
+                            .to("direct:filterMessage-{{componentPath}}")
+                        .otherwise()
+                            .bean(messageProcessor, "recordInboundProcessingCompleteEvent(*)")
+                        .end();
+        
+        
 
-        routeTemplate("outboundProcessingCompleteTopicConsumer").templateParameter("componentPath")
-                .from("direct:handleOutboundProcessCompleteEvent-{{componentPath}}")
-                .routeId("handleOutboundProcessCompleteEvent-{{componentPath}}").routeGroup("{{componentPath}}").transacted("")
-                .bean(messageProcessor, "deleteMessageFlowEvent(*)").process(new Processor() {
-
-                    @Override
-                    public void process(Exchange exchange) throws Exception {
-                        long workFlowStepId = (long) exchange.getMessage().getHeader(MessageProcessor.MESSAGE_FLOW_STEP_ID);
-                        exchange.getMessage().setBody(workFlowStepId);
-                    }
-                }).to("jms:topic:VirtualTopic.{{componentPath}}");
-
-        // The outbound processing for a inbound communication point.
-        routeTemplate("routeConnectorPointOutboundProcessorTemplate").templateParameter("isOutboundRunning")
-                .templateParameter("componentPath").templateParameter("componentRouteId")
-                .from("direct:outboundProcessor-{{componentPath}}").routeId("outboundProcessor-{{componentPath}}")
-                .routeGroup("{{componentPath}}").autoStartup("{{isOutboundRunning}}")
-                .bean(messageProcessor, "storeOutboundMessageFlowStep(*,{{componentRouteId}})")
-                .bean(messageProcessor, "recordOutboundProcessingCompleteEvent(*)");
-
-        routeTemplate("processingStepOutboundProcessorTemplate").templateParameter("isOutboundRunning")
-                .templateParameter("componentPath").from("direct:outboundProcessor-{{componentPath}}")
-                .routeId("outboundProcessor-{{componentPath}}").routeGroup("{{componentPath}}")
-                .autoStartup("{{isOutboundRunning}}")
-                // .setHeader("contentType", simple(getContentType()))
-                .to("direct:process-{{componentPath}}");
+        // Outbound processing for a route connector.  A route connector is used to join routes together.  A route connector does no processing on a message.
+        routeTemplate("routeConnectorOutboundProcessorTemplate")
+            .templateParameter("isOutboundRunning")
+            .templateParameter("componentPath")
+            .templateParameter("componentRouteId")
+            .templateParameter("contentType")
+            .from("direct:outboundProcessor-{{componentPath}}")
+            .routeId("outboundProcessor-{{componentPath}}")
+            .routeGroup("{{componentPath}}")
+            .setHeader("contentType", constant("{{contentType}}"))
+            .autoStartup("{{isOutboundRunning}}")
+            .bean(messageProcessor, "storeOutboundMessageFlowStep(*,{{componentRouteId}})")
+            .bean(messageProcessor, "recordOutboundProcessingCompleteEvent(*)");
+        
+        
+        
+        // Outbound processing for a processing step.  A processing step is anything other than a commumnication point and can include transformers, filters, splitters.
+        // The message is received from the outbound processing entry route and is then passed to a route to do the actual processing which will vary depending on the component.
+        routeTemplate("processingStepOutboundProcessorTemplate")
+            .templateParameter("isOutboundRunning")
+            .templateParameter("componentPath")
+            .from("direct:outboundProcessor-{{componentPath}}")
+            .routeId("outboundProcessor-{{componentPath}}")
+            .routeGroup("{{componentPath}}")
+            .autoStartup("{{isOutboundRunning}}")
+            .to("direct:process-{{componentPath}}");
     }
 }

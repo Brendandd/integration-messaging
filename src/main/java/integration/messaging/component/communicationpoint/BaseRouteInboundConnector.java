@@ -23,49 +23,68 @@ public abstract class BaseRouteInboundConnector extends BaseRouteConnector imple
     public void configure() throws Exception {
         super.configure();
 
-        // Inbound message flow into this component.
-        from("jms:VirtualTopic." + getName() + "::Consumer." + identifier.getComponentPath() + ".VirtualTopic." + getName()
-                + "?acknowledgementModeName=CLIENT_ACKNOWLEDGE&concurrentConsumers=5")
-                .routeId("messageReceiver-" + identifier.getComponentPath() + "-" + getName())
-                .routeGroup(identifier.getComponentPath())
+        // Inbound message flow into this component.  The message is read from a single topic.  In the future I might allow multiple topics.  This is the entry point for an
+        // inbound route connector.
+        from("jms:VirtualTopic." + getName() + "::Consumer." + identifier.getComponentPath() + ".VirtualTopic." + getName() + "?acknowledgementModeName=CLIENT_ACKNOWLEDGE&concurrentConsumers=5")
+            .routeId("messageReceiver-" + identifier.getComponentPath() + "-" + getName())
+            .routeGroup(identifier.getComponentPath())
 
-                .autoStartup(isInboundRunning).transacted("").transform()
+            .autoStartup(isInboundRunning)
+            .transacted()
+                .transform()
                 .method(messageProcessor, "replaceMessageBodyIdWithMessageContent(*)")
                 .bean(messageProcessor, "storeInboundMessageFlowStep(*," + identifier.getComponentRouteId() + ")")
                 .bean(messageProcessor, "recordInboundProcessingCompleteEvent(*)");
 
-        TemplatedRouteBuilder.builder(camelContext, "handleInboundProcessingCompleteEventTemplate")
-                .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-                .add();
+        
+        
+        // A route to add the message flow step id to the inbound processing complete queue so it can be picked up by the outbound processor.
+        TemplatedRouteBuilder.builder(camelContext, "addToInboundProcessingCompleteQueueTemplate")
+            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
+            .add();
 
-        TemplatedRouteBuilder.builder(camelContext, "readMessageFromInboundProcessingCompleteQueueTemplate")
-                .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-                .parameter("componentRouteId", identifier.getComponentRouteId()).add();
+        
+        
+        // A route to read the message flow step id from the inbound processing complete queue.  This is the entry point for the outbound processor.
+        TemplatedRouteBuilder.builder(camelContext, "readFromInboundProcessingCompleteQueueTemplate")
+            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
+            .parameter("componentRouteId", identifier.getComponentRouteId())
+            .parameter("contentType", getContentType())
+            .add();
 
+        
         // Process outbound processing complete events.
-        from("direct:handleOutboundProcessCompleteEvent-" + identifier.getComponentPath())
-                .routeGroup(identifier.getComponentPath()).transacted("").bean(messageProcessor, "deleteMessageFlowEvent(*)")
-                .process(new Processor() {
+        from("direct:addToOutboundProcessingCompleteTopic-" + identifier.getComponentPath())
+                .routeGroup(identifier.getComponentPath())
+                .transacted()
+                    .bean(messageProcessor, "deleteMessageFlowEvent(*)")
+                    .process(new Processor() {
+    
+                        @Override
+                        public void process(Exchange exchange) throws Exception {
+                            long workFlowStepId = (long) exchange.getMessage().getHeader(MessageProcessor.MESSAGE_FLOW_STEP_ID);
+                            exchange.getMessage().setBody(workFlowStepId);
+                        }
+                    }).to("jms:topic:VirtualTopic." + identifier.getComponentPath());
 
-                    @Override
-                    public void process(Exchange exchange) throws Exception {
-                        long workFlowStepId = (long) exchange.getMessage().getHeader(MessageProcessor.MESSAGE_FLOW_STEP_ID);
-                        exchange.getMessage().setBody(workFlowStepId);
-                    }
-                }).to("jms:topic:VirtualTopic." + identifier.getComponentPath());
 
-        // Outbound message flow from an inbound communication point.
+        
+        // Outbound message flow from an inbound route connector.
         from("direct:outboundProcessor-" + identifier.getComponentPath())
-                .routeId("outboundProcessor-" + identifier.getComponentPath()).routeGroup(identifier.getComponentPath())
-                .autoStartup(isOutboundRunning)
-                // .setHeader("contentType", simple(getContentType()))
-                .bean(messageProcessor, "storeOutboundMessageFlowStep(*," + identifier.getComponentRouteId() + ")")
-                // Filter the outbound message if required.
-                .bean(getMessageForwardingPolicy(), "applyPolicy")
+            .routeId("outboundProcessor-" + identifier.getComponentPath()).routeGroup(identifier.getComponentPath())
+            .autoStartup(isOutboundRunning)
+            .setHeader("contentType", constant(getContentType()))
+            .bean(messageProcessor, "storeOutboundMessageFlowStep(*," + identifier.getComponentRouteId() + ")")
+            
+            // Filter the outbound message if required.
+            .bean(getMessageForwardingPolicy(), "applyPolicy")
 
-                .choice().when(header(MessageForwardingPolicy.FORWARD_MESSAGE).isEqualTo(false))
-                .to("direct:filterMessage-" + identifier.getComponentPath()).otherwise()
-                .bean(messageProcessor, "recordOutboundProcessingCompleteEvent(*)").end();
+            .choice()
+                .when(header(MessageForwardingPolicy.FORWARD_MESSAGE).isEqualTo(false))
+                    .to("direct:filterMessage-" + identifier.getComponentPath())
+                .otherwise()
+                    .bean(messageProcessor, "recordOutboundProcessingCompleteEvent(*)")
+                .end();
 
     }
 

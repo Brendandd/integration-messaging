@@ -10,7 +10,7 @@ import integration.messaging.component.communicationpoint.BaseInboundCommunicati
 import jakarta.persistence.EntityManagerFactory;
 
 /**
- * Base class for all directory input communication points. This components
+ * Base class for all directory/file input communication points. This components
  * reads the file, stores it and writes and event No other processing should be
  * done here.
  * 
@@ -45,29 +45,50 @@ public abstract class BaseDirectoryInboundCommunicationPoint extends BaseInbound
     public void configure() throws Exception {
         super.configure();
 
-        from(getFromUriString()).routeId(identifier.getComponentPath() + "-inbound").routeGroup(identifier.getComponentPath())
-                .autoStartup(isInboundRunning)
+        // Entry point route for directory/file communication points.  Reads the message from the configured location, writes the message details to the database and records
+        // an event.
+        from(getFromUriString())
+            .routeId(identifier.getComponentPath() + "-inbound")
+            .routeGroup(identifier.getComponentPath())
+            .autoStartup(isInboundRunning)
 
-                // Store the message and an event in a single transaction.
-                .transacted("").setHeader("contentType", simple(getContentType()))
-
+            // Store the message and an event in a single transaction.
+            .transacted()
+                .setHeader("contentType", simple(getContentType()))
                 .bean(messageProcessor, "storeInboundMessageFlowStep(*," + identifier.getComponentRouteId() + ")")
                 .bean(messageProcessor, "recordInboundProcessingCompleteEvent(*)");
 
-        TemplatedRouteBuilder.builder(camelContext, "handleInboundProcessingCompleteEventTemplate")
-                .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-                .add();
+        
+        // A route to add the message flow step id to the inbound processing complete queue so it can be picked up by the outbound processor.
+        TemplatedRouteBuilder.builder(camelContext, "addToInboundProcessingCompleteQueueTemplate")
+            .parameter("isOutboundRunning", isOutboundRunning)
+            .parameter("componentPath", identifier.getComponentPath())
+            .add();
 
-        TemplatedRouteBuilder.builder(camelContext, "readMessageFromInboundProcessingCompleteQueueTemplate")
-                .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-                .parameter("componentRouteId", identifier.getComponentRouteId()).add();
+        
+        // A route to read the message flow step id from the inbound processing complete queue.  This is the entry point for the outbound processor.
+        TemplatedRouteBuilder.builder(camelContext, "readFromInboundProcessingCompleteQueueTemplate")
+            .parameter("isOutboundRunning", isOutboundRunning)
+            .parameter("componentPath", identifier.getComponentPath())
+            .parameter("componentRouteId", identifier.getComponentRouteId())
+            .parameter("contentType", getContentType())
+            .add();
 
+        
+        // Outbound processor for a directory/file inbound communication point.  This route will either create an event for further processing by other components or filter
+        // the message.  No other processing is done here.
         TemplatedRouteBuilder.builder(camelContext, "inboundCommunicationPointOutboundProcessorTemplate")
-                .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-                .parameter("componentRouteId", identifier.getComponentRouteId())
-                .bean("messageForwardingPolicy", getMessageForwardingPolicy()).add();
+            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
+            .parameter("componentRouteId", identifier.getComponentRouteId())
+            .parameter("contentType", getContentType())
+            .bean("messageForwardingPolicy", getMessageForwardingPolicy())
+            .add();
 
-        TemplatedRouteBuilder.builder(camelContext, "outboundProcessingCompleteTopicConsumer")
-                .parameter("componentPath", identifier.getComponentPath()).add();
+        
+        // Add the message flow step id to the outbound processing complete topic so it can be picked up by one or more other components.  This is the final
+        // step in directory/file inbound communication points.
+        TemplatedRouteBuilder.builder(camelContext, "addToOutboundProcessingCompleteTopicTemplate")
+            .parameter("componentPath", identifier.getComponentPath())
+            .add();
     }
 }

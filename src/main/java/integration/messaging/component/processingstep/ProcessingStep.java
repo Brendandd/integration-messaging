@@ -3,6 +3,8 @@ package integration.messaging.component.processingstep;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.camel.builder.TemplatedRouteBuilder;
+
 import integration.messaging.component.BaseMessagingComponent;
 import integration.messaging.component.DestinationComponent;
 import integration.messaging.component.SourceComponent;
@@ -28,5 +30,49 @@ public abstract class ProcessingStep extends BaseMessagingComponent implements S
     @Override
     public void addSourceComponent(SourceComponent sourceComponent) {
         this.sourceComponentPaths.add(sourceComponent.getIdentifier().getComponentPath());
+    }
+
+
+    @Override
+    public void configure() throws Exception {
+        super.configure();
+        
+        // A route to read the message flow step id from the inbound processing complete queue.  This is the entry point for the outbound processor.
+        TemplatedRouteBuilder.builder(camelContext, "readFromInboundProcessingCompleteQueueTemplate")
+            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
+            .parameter("componentRouteId", identifier.getComponentRouteId())
+            .parameter("contentType", getContentType())
+            .add();
+
+        
+        // Creates one or more routes based on this components source components.  Each route reads from a topic.  This is the entry point for processing steps.
+        for (String sourceComponent : sourceComponentPaths) {
+            TemplatedRouteBuilder.builder(camelContext, "componentInboundTopicConsumerTemplate")
+                .parameter("isInboundRunning", isInboundRunning).parameter("componentPath", identifier.getComponentPath())
+                .parameter("sourceComponentPath", sourceComponent)
+                .parameter("componentRouteId", identifier.getComponentRouteId())
+                .parameter("contentType", constant(getContentType()))
+                .bean("messageAcceptancePolicy", getMessageAcceptancePolicy())
+                .add();
+        }
+
+        
+        // A route to add the message flow step id to the inbound processing complete queue so it can be picked up by the outbound processor.
+        TemplatedRouteBuilder.builder(camelContext, "addToInboundProcessingCompleteQueueTemplate")
+            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
+            .add();
+        
+        
+        // Route to do the actual processing step processing.
+        TemplatedRouteBuilder.builder(camelContext, "processingStepOutboundProcessorTemplate")
+            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
+            .add();
+
+        
+        // Add the message flow step id to the outbound processing complete topic so it can be picked up by one or more other components.  This is the final
+        // step in processing steps.
+        TemplatedRouteBuilder.builder(camelContext, "addToOutboundProcessingCompleteTopicTemplate")
+            .parameter("componentPath", identifier.getComponentPath())
+            .add();
     }
 }

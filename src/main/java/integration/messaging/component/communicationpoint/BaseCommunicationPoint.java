@@ -3,7 +3,9 @@ package integration.messaging.component.communicationpoint;
 import integration.messaging.component.BaseMessagingComponent;
 
 /**
- * Base class for all communication points.
+ * Base class for all communication points. 
+ * 
+ * 
  * 
  * @author Brendan Douglas
  */

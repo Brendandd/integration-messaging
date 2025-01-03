@@ -30,6 +30,17 @@ import integration.messaging.service.MessagingFlowService;
 /**
  * Base class for all Apache Camel messaging component routes.
  * 
+ * All messaging components are implemented as multiple Apache Camel routes. All components are divided into an inbound processor route and
+ * an outbound processor route with communication between these two processor routes done via JMS queues.
+ * 
+ * Communication between different message components is done via JMS topics.  
+ * 
+ * Messaging components can be communication points, processing steps (eg. transformers, filters, splitters) and route connectors.
+ * 
+ * To ensure guaranteed message delivery between components the transactional outbox pattern is used.  Firstly a message is written to an event table within the same transactions as the 
+ * message flow record is stored in the main table.  A timer process then processes these events and within the same transaction the event is removed and a message written to a JMS topic to be 
+ * picked up by another component.  
+ * 
  * @author Brendan Douglas
  *
  */
@@ -221,7 +232,7 @@ public abstract class BaseMessagingComponent extends RouteBuilder implements Com
     }
 
     /**
-     * A timer to process messages which have completed inbound prossing.
+     * A timer to process messages which have completed inbound processing.  The message gets added to a queue to be picked up by the components outbound processor.
      */
     @Scheduled(fixedRate = 100)
     public void processComponentInboundProcessingCompleteEvents() {
@@ -247,7 +258,7 @@ public abstract class BaseMessagingComponent extends RouteBuilder implements Com
             for (MessageFlowEventDto event : events) {
                 long messageFlowId = event.getMessageFlowId();
 
-                producerTemplate.sendBodyAndHeader("direct:handleInboundProcessingCompleteEvent-" + identifier.getComponentPath(),
+                producerTemplate.sendBodyAndHeader("direct:addToInboundProcessingCompleteQueue-" + identifier.getComponentPath(),
                         event.getId(), MessageProcessor.MESSAGE_FLOW_STEP_ID, messageFlowId);
             }
         } finally {
@@ -255,9 +266,10 @@ public abstract class BaseMessagingComponent extends RouteBuilder implements Com
             lock.unlock();
         }
     }
-
+    
+    
     /**
-     * A timer to process messages which have completed inbound processing.
+     * A timer to process messages which have completed outbound processing.  The message get added to a topic for other components to consume.
      */
     @Scheduled(fixedRate = 100)
     public void processComponentOutboundProcessingCompleteEvents() {
@@ -283,7 +295,44 @@ public abstract class BaseMessagingComponent extends RouteBuilder implements Com
             for (MessageFlowEventDto event : events) {
                 long messageFlowId = event.getMessageFlowId();
 
-                producerTemplate.sendBodyAndHeader("direct:handleOutboundProcessCompleteEvent-" + identifier.getComponentPath(),
+                producerTemplate.sendBodyAndHeader("direct:addToOutboundProcessingCompleteTopic-" + identifier.getComponentPath(),
+                        event.getId(), MessageProcessor.MESSAGE_FLOW_STEP_ID, messageFlowId);
+            }
+        } finally {
+            // Release the lock
+            lock.unlock();
+        }
+    }
+
+    
+    /**
+     * A timer to process messages which are ready for sending to the final destination.
+     */
+    @Scheduled(fixedRate = 100)
+    public void processMessageReadyForSendingEvents() {
+        if (!camelContext.isStarted()) {
+            return;
+        }
+
+        IgniteCache<String, Integer> cache = ignite.getOrCreateCache("eventCache3");
+
+        List<MessageFlowEventDto> events = null;
+
+        Lock lock = cache.lock(MessageFlowTypeEvent.MESSAGE_READY_FOR_SENDING + "-" + identifier.getComponentPath());
+
+        try {
+            // Acquire the lock
+            lock.lock();
+
+            events = messagingFlowService.getEvents(identifier.getComponentRouteId(), 20,
+                    MessageFlowTypeEvent.MESSAGE_READY_FOR_SENDING);
+
+            // Each event read we add to the queue and then delete the event and update the
+            // master table.
+            for (MessageFlowEventDto event : events) {
+                long messageFlowId = event.getMessageFlowId();
+
+                producerTemplate.sendBodyAndHeader("direct:sendMessageToDestination-" + identifier.getComponentPath(),
                         event.getId(), MessageProcessor.MESSAGE_FLOW_STEP_ID, messageFlowId);
             }
         } finally {

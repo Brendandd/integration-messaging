@@ -46,7 +46,7 @@ public class ProcessingStepCamelRoute extends BaseMessagingCamelRoute {
                 .to("direct:process-" + identifier.getComponentPath());
 
         // Process outbound processing complete events.
-        from("direct:handleOutboundProcessCompleteEvent-" + identifier.getComponentPath())
+        from("direct:addToOutboundProcessingCompleteTopic-" + identifier.getComponentPath())
                 .routeGroup(identifier.getComponentPath()).transacted("").bean(messageProcessor, "deleteMessageFlowEvent(*)")
                 .process(new Processor() {
 
