@@ -348,8 +348,43 @@ public abstract class BaseMessagingComponent extends RouteBuilder implements Com
 
     @Override
     public void configure() throws Exception {
-        from("direct:filterMessage-" + identifier.getComponentPath()).process(new Processor() {
+        
+        
+        // A route called within a transactional outbox process to add a message flow step event id to the inbound processing complete event queue.  This routes adds the id to the queue and
+        // deletes the source event within a single transaction.  A queue is used here as we only want a single consumer to process the message and the consumer here is the components
+        // outbound processor.
+        from("direct:addToInboundProcessingCompleteQueue-" + identifier.getComponentPath())
+            .routeId("addToInboundProcessingCompleteQueue-" + identifier.getComponentPath())
+            .routeGroup(identifier.getComponentPath())
+            .transacted()
+                .bean(messageProcessor, "deleteMessageFlowEvent(*)")
+                .process(new Processor() {
 
+                    @Override
+                    public void process(Exchange exchange) throws Exception {
+                        long workFlowStepId = (long) exchange.getMessage().getHeader(MessageProcessor.MESSAGE_FLOW_STEP_ID);
+                        exchange.getMessage().setBody(workFlowStepId);
+                    }
+    
+                })
+            .to("jms:queue:inboundProcessingComplete-" + identifier.getComponentPath());
+        
+        
+        
+        // Entry route for all component outbound processors.  This route reads a message id from an inbound processing complete queue and then performs the required outbound processing. 
+        // The actual outbound processing is done in the direct:outboundProcessor route which the message is forwarded to.  This will vary depending on the type of component.
+        from("jms:queue:inboundProcessingComplete-" + identifier.getComponentPath() + "?acknowledgementModeName=CLIENT_ACKNOWLEDGE&concurrentConsumers=5")
+            .autoStartup(isOutboundRunning)
+            .routeGroup(identifier.getComponentPath())
+            .setHeader("contentType", constant(getContentType()))
+            .transacted()
+                .transform()
+                .method(messageProcessor, "replaceMessageBodyIdWithMessageContent(*)")
+                .to("direct:outboundProcessor-" + identifier.getComponentPath());
+        
+                
+        
+        from("direct:filterMessage-" + identifier.getComponentPath()).process(new Processor() {
             @Override
             public void process(Exchange exchange) throws Exception {
                 // TODO change this - filter the message in the db

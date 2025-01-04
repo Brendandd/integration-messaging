@@ -32,13 +32,7 @@ public abstract class BaseRouteOutboundConnector extends BaseRouteConnector impl
     public void configure() throws Exception {
         super.configure();
 
-        TemplatedRouteBuilder.builder(camelContext, "readFromInboundProcessingCompleteQueueTemplate")
-            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-            .parameter("componentRouteId", identifier.getComponentRouteId())
-            .parameter("contentType", getContentType())
-            .add();
-
-        
+       
         // Creates one or more routes based on this components source components.  Each route reads from a topic.  This is the entry point for outbound route connectors.
         for (String sourceComponent : sourceComponentPaths) {
             TemplatedRouteBuilder.builder(camelContext, "componentInboundTopicConsumerTemplate")
@@ -50,14 +44,7 @@ public abstract class BaseRouteOutboundConnector extends BaseRouteConnector impl
                 .add();
         }
 
-        
-        // 
-        TemplatedRouteBuilder.builder(camelContext, "addToInboundProcessingCompleteQueueTemplate")
-            .parameter("isOutboundRunning", isOutboundRunning)
-            .parameter("componentPath", identifier.getComponentPath())
-            .add();
-
-        
+               
         TemplatedRouteBuilder.builder(camelContext, "routeConnectorOutboundProcessorTemplate")
             .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
             .parameter("componentRouteId", identifier.getComponentRouteId())

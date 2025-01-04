@@ -50,30 +50,6 @@ public class RouteTemplates extends RouteBuilder {
                 .end();
 
         
-        
-        // A route called within a transactional outbox process to add a message flow step event id to the inbound processing complete event queue.  This routes adds the id to the queue and
-        // deletes the source event within a single transaction.  A queue is used here as we only want a single consumer to process the message and the consumer here is the components
-        // outbound processor.
-        routeTemplate("addToInboundProcessingCompleteQueueTemplate")
-            .templateParameter("isOutboundRunning")
-            .templateParameter("componentPath")
-            .from("direct:addToInboundProcessingCompleteQueue-{{componentPath}}")
-            .routeId("addToInboundProcessingCompleteQueue-{{componentPath}}")
-            .routeGroup("{{componentPath}}")
-            .transacted()
-                .bean(messageProcessor, "deleteMessageFlowEvent(*)")
-                .process(new Processor() {
-
-                    @Override
-                    public void process(Exchange exchange) throws Exception {
-                        long workFlowStepId = (long) exchange.getMessage().getHeader(MessageProcessor.MESSAGE_FLOW_STEP_ID);
-                        exchange.getMessage().setBody(workFlowStepId);
-                    }
-    
-                })
-            .to("jms:queue:inboundProcessingComplete-{{componentPath}}");
-
-        
         // A route called within a transactional outbox process to add a message flow step event id to a virtual topic.  This routes adds the id to the topic and deletes the source event 
         // within a single transaction.  A topic is used here as the message can be consumed by multiple other components.  This route is the final route in any component which
         // produces messages for other components to consume.
@@ -94,24 +70,6 @@ public class RouteTemplates extends RouteBuilder {
                 })
             .to("jms:topic:VirtualTopic.{{componentPath}}");
     
-        
-        
-        // Entry route for a components outbound processor.  This route reads a message id from an inbound processing complete queue and then performs the required outbound processing. 
-        // The actual outbound processing is done in the direct:outboundProcessor route which the message is forwarded to.  This will vary depending on the type of component.
-        routeTemplate("readFromInboundProcessingCompleteQueueTemplate")
-            .templateParameter("isOutboundRunning")
-            .templateParameter("componentPath")
-            .templateParameter("componentRouteId")
-            .templateParameter("contentType")
-            .from("jms:queue:inboundProcessingComplete-{{componentPath}}?acknowledgementModeName=CLIENT_ACKNOWLEDGE&concurrentConsumers=5")
-            .autoStartup("{{isOutboundRunning}}")
-            .routeGroup("{{componentPath}}")
-            .setHeader("contentType", constant("{{contentType}}"))
-            .transacted()
-                .transform()
-                .method(messageProcessor, "replaceMessageBodyIdWithMessageContent(*)")
-                .to("direct:outboundProcessor-{{componentPath}}");
-        
         
         
         // A route to read a message from a topic, store the message flow, and then either accept the message which allows further processing or filter the message.

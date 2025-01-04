@@ -59,22 +59,6 @@ public abstract class BaseDirectoryInboundCommunicationPoint extends BaseInbound
                 .bean(messageProcessor, "recordInboundProcessingCompleteEvent(*)");
 
         
-        // A route to add the message flow step id to the inbound processing complete queue so it can be picked up by the outbound processor.
-        TemplatedRouteBuilder.builder(camelContext, "addToInboundProcessingCompleteQueueTemplate")
-            .parameter("isOutboundRunning", isOutboundRunning)
-            .parameter("componentPath", identifier.getComponentPath())
-            .add();
-
-        
-        // A route to read the message flow step id from the inbound processing complete queue.  This is the entry point for the outbound processor.
-        TemplatedRouteBuilder.builder(camelContext, "readFromInboundProcessingCompleteQueueTemplate")
-            .parameter("isOutboundRunning", isOutboundRunning)
-            .parameter("componentPath", identifier.getComponentPath())
-            .parameter("componentRouteId", identifier.getComponentRouteId())
-            .parameter("contentType", getContentType())
-            .add();
-
-        
         // Outbound processor for a directory/file inbound communication point.  This route will either create an event for further processing by other components or filter
         // the message.  No other processing is done here.
         TemplatedRouteBuilder.builder(camelContext, "inboundCommunicationPointOutboundProcessorTemplate")

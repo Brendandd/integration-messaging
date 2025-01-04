@@ -2,7 +2,6 @@ package integration.messaging.component.communicationpoint;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
-import org.apache.camel.builder.TemplatedRouteBuilder;
 
 import integration.messaging.MessageProcessor;
 import integration.messaging.component.SourceComponent;
@@ -36,23 +35,8 @@ public abstract class BaseRouteInboundConnector extends BaseRouteConnector imple
                 .bean(messageProcessor, "storeInboundMessageFlowStep(*," + identifier.getComponentRouteId() + ")")
                 .bean(messageProcessor, "recordInboundProcessingCompleteEvent(*)");
 
-        
-        
-        // A route to add the message flow step id to the inbound processing complete queue so it can be picked up by the outbound processor.
-        TemplatedRouteBuilder.builder(camelContext, "addToInboundProcessingCompleteQueueTemplate")
-            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-            .add();
-
-        
-        
-        // A route to read the message flow step id from the inbound processing complete queue.  This is the entry point for the outbound processor.
-        TemplatedRouteBuilder.builder(camelContext, "readFromInboundProcessingCompleteQueueTemplate")
-            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-            .parameter("componentRouteId", identifier.getComponentRouteId())
-            .parameter("contentType", getContentType())
-            .add();
-
-        
+          
+       
         // Process outbound processing complete events.
         from("direct:addToOutboundProcessingCompleteTopic-" + identifier.getComponentPath())
                 .routeGroup(identifier.getComponentPath())

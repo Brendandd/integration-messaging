@@ -36,15 +36,7 @@ public abstract class ProcessingStep extends BaseMessagingComponent implements S
     @Override
     public void configure() throws Exception {
         super.configure();
-        
-        // A route to read the message flow step id from the inbound processing complete queue.  This is the entry point for the outbound processor.
-        TemplatedRouteBuilder.builder(camelContext, "readFromInboundProcessingCompleteQueueTemplate")
-            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-            .parameter("componentRouteId", identifier.getComponentRouteId())
-            .parameter("contentType", getContentType())
-            .add();
-
-        
+               
         // Creates one or more routes based on this components source components.  Each route reads from a topic.  This is the entry point for processing steps.
         for (String sourceComponent : sourceComponentPaths) {
             TemplatedRouteBuilder.builder(camelContext, "componentInboundTopicConsumerTemplate")
@@ -56,12 +48,6 @@ public abstract class ProcessingStep extends BaseMessagingComponent implements S
                 .add();
         }
 
-        
-        // A route to add the message flow step id to the inbound processing complete queue so it can be picked up by the outbound processor.
-        TemplatedRouteBuilder.builder(camelContext, "addToInboundProcessingCompleteQueueTemplate")
-            .parameter("isOutboundRunning", isOutboundRunning).parameter("componentPath", identifier.getComponentPath())
-            .add();
-        
         
         // Route to do the actual processing step processing.
         TemplatedRouteBuilder.builder(camelContext, "processingStepOutboundProcessorTemplate")
